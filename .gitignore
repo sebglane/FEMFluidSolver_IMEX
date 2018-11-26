@@ -102,3 +102,43 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# latex files
+*.clo
+*.cls
+*.aux
+*.auxlock
+*.dpth
+*.dep
+*.glo
+*.idx
+*.log
+*.bcf
+*.toc
+*.ist
+*.acn
+*.acr
+*.alg
+*.bbl
+*-blx.bib
+*.blg
+*.dvi
+*.glg
+*.gls
+*.ilg
+*.ind
+*.lof
+*.lot
+*.maf
+*.mtc
+*.mtc1
+*.md5
+*.out
+*.synctex.gz
+*.gz
+*.run.xml
+*.nav
+*.snm
+*.vrb
+*-figure*.pdf
+*.bak

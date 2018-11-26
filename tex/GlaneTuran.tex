@@ -1,0 +1,182 @@
+\documentclass[aps,preprint]{revtex4-1} 
+\usepackage{blindtext}
+\newif\iffastmode
+%\fastmodetrue
+\fastmodefalse
+\newif\ifusetikz
+\usetikztrue
+%\usetikzfalse
+%------------------------------------------------------------
+% Packages
+%------------------------------------------------------------
+% For these, the load order is important:
+\usepackage{cmap}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[main=english,greek]{babel}
+\usepackage[pdftex]{graphicx}
+\graphicspath{{figures/}}
+\usepackage{lmodern}
+\bibliographystyle{apsrev4-1.bst}
+% ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{nicefrac}
+\usepackage{stackrel}
+\usepackage{siunitx}
+\usepackage{subfig}
+\usepackage{booktabs}
+\usepackage{esint}
+\usepackage[breaklinks=true,hidelinks]{hyperref}
+\usepackage{calc}
+\iffastmode
+\else
+\usepackage{microtype}
+\fi
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{framed}
+\usepackage{stmaryrd}
+\usepackage{paralist}
+
+\ifusetikz
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usetikzlibrary{arrows,shapes,positioning,calc,decorations.pathreplacing,patterns,external}
+\tikzexternalize[prefix=figures/]
+\usepgfplotslibrary{fillbetween}
+\pgfplotsset{
+	compat=newest,
+	colormap={coldwarm}{
+		rgb255(0cm)=(59,76,192);
+		rgb255(0.0625cm)=(68,90,204);
+		rgb255(0.125cm)=(77,104,215);
+		rgb255(0.1875cm)=(87,117,225);
+		rgb255(0.25cm)=(98,130,234);
+		rgb255(0.3125cm)=(108,142,241);
+		rgb255(0.375cm)=(119,154,247);
+		rgb255(0.4375cm)=(130,165,251);
+		rgb255(0.5cm)=(141,176,254);
+		rgb255(0.5625cm)=(152,185,255);
+		rgb255(0.625cm)=(163,194,255);
+		rgb255(0.6875cm)=(174,201,253);
+		rgb255(0.75cm)=(184,208,249);
+		rgb255(0.8125cm)=(194,213,244);
+		rgb255(0.875cm)=(204,217,238);
+		rgb255(0.9375cm)=(213,219,230);
+		rgb255(1cm)=(221,221,221);
+		rgb255(1.0625cm)=(229,216,209);
+		rgb255(1.125cm)=(236,211,197);
+		rgb255(1.1875cm)=(241,204,185);
+		rgb255(1.25cm)=(245,196,173);
+		rgb255(1.3125cm)=(247,187,160);
+		rgb255(1.375cm)=(247,177,148);
+		rgb255(1.4375cm)=(247,166,135);
+		rgb255(1.5cm)=(244,154,123);
+		rgb255(1.5625cm)=(241,141,111);
+		rgb255(1.625cm)=(236,127,99);
+		rgb255(1.6875cm)=(229,112,88);
+		rgb255(1.75cm)=(222,96,77);
+		rgb255(1.8125cm)=(213,80,66);
+		rgb255(1.875cm)=(203,62,56);
+		rgb255(1.9375cm)=(192,40,47);
+		rgb255(2cm)=(180,4,38);
+	}
+}
+\pgfplotscreateplotcyclelist{paper color list}{%
+	red,blue,brown!60!black,teal,orange,violet,cyan,green!70!black,magenta,gray,yellow!60!black}
+\fi
+
+% Some further (package) options
+\pdfminorversion=5
+\SetSymbolFont{stmry}{bold}{U}{stmry}{m}{n}
+%------------------------------------------------------------
+%
+%------------------------------------------------------------
+% Custom commands
+%------------------------------------------------------------
+% New definition of square root:
+% it renames \sqrt as \oldsqrt
+\let\oldsqrt\sqrt
+% it defines the new \sqrt in terms of the old one
+\def\sqrt{\mathpalette\DHLhksqrt}
+\def\DHLhksqrt#1#2{%
+	\setbox0=\hbox{$#1\oldsqrt{#2\,}$}\dimen0=\ht0
+	\advance\dimen0-0.2\ht0
+	\setbox2=\hbox{\vrule height\ht0 depth -\dimen0}%
+	{\box0\lower0.4pt\box2}}
+% General
+\newcommand{\viz}{\textit{viz.}, }
+\newcommand{\ie}{\textit{i.e.}, }
+\newcommand{\eg}{\textit{e.g.} }
+\newcommand{\cf}{\textit{cf.}\ }
+\newcommand{\wrt}{w.r.t.\ }
+\newcommand{\etc}{\textit{etc.}\ }
+% upright greek / constants and operators
+\newcommand{\gpi}{\textrm{\greektext p}}
+\newcommand{\gmu}{\textrm{\greektext m}}
+\newcommand{\geps}{\textrm{\greektext e}}
+% general operators and shortcuts
+\newcommand{\abs}[1]{\ensuremath{| #1 |}}
+\newcommand{\norm}[1]{\ensuremath{\left|\!\left| #1 \right|\!\right|}}
+\renewcommand{\d}[1]{\ensuremath{\mathrm{d}#1} }
+\newcommand{\drm}[1]{\ensuremath{\,\mathrm{d}#1}}
+\newcommand{\p}{\partial}
+\newcommand{\dd}[2]{\frac{\d #1}{\d #2}}
+\newcommand{\ddsqrd}[2]{\frac{\d^2 #1}{\d #2^2}}
+\newcommand{\pd}[2]{\frac{\p #1}{\p #2}}
+\newcommand{\ppd}[3]{\frac{\p^2 #1}{\p #2\p #3}}
+\newcommand{\pdsqr}[2]{\frac{\p^2 #1}{\p #2^2}}
+\DeclareMathOperator{\sgn}{sgn}
+\newcommand*{\cdott}{\,{\cdot}{\cdot}\,}
+\newcommand*{\levi}{\overset{\scalebox{0.4}{$\langle3\rangle$}}{\bm \epsilon}}
+% basis vectors
+\newcommand{\ex}{\bm{e}_x}
+\newcommand{\ey}{\bm{e}_y}
+\newcommand{\ez}{\bm{e}_z}
+
+\begin{document}
+
+% Be sure to use the \title, \author, \affiliation, and \abstract macros
+% to format your title page.  Don't use lower-level macros to  manually
+% adjust the fonts and centering.
+
+\title{Assessment of IMEX schemes for convective and buoyancy-driven flows}
+% In a long title you can use \\ to force a line break at a certain location.
+
+\author{Sebastian Glane}
+\email{glane@tu-berlin.de}
+\author{Berkant F.\ Turan}
+\email{berkant.f.turan@gmail.com}
+
+\affiliation{Institut f\"ur Mechanik, Kontinuumsmechanik und Materialtheorie, Technische Universit\"at Berlin,\\ Sek.~MS.~2, Einsteinufer~5, 10587~Berlin, Germany}
+
+\date{\today}
+
+\begin{abstract}
+Some text...
+\end{abstract}
+% AJP requires an abstract for all regular article submissions.
+% Abstracts are optional for submissions to the "Notes and Discussions" section.
+
+\maketitle % title page is now complete
+
+\section{Introduction\label{sec:Introduction}}
+\section{IMEX time stepping schemes and their properties\label{sec:IMEXSchemes}}
+\section{Benchmark problems\label{sec:BenchmarkProblems}}
+\section{Results\label{sec:Results}}
+\section{Discussion\label{sec:Discussion}}
+\section{Conclusion\label{sec:Conclusion}}
+
+\appendix*   % Omit the * if there's more than one appendix.
+%\section*{Identities of tensor calculus}
+
+%\begin{acknowledgments}
+%\end{acknowledgments}
+\bibliography{references.bib}
+\end{document}
+	
