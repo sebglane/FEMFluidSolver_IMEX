@@ -54,10 +54,14 @@ class IMEXCoefficients():
             self._gamma[0] = 1.0
             self._gamma[1] = 0.0
             self._gamma[2] = 0.0
-        elif self._type is "CNAB" or self._type is "MCNAB":
+        elif self._type is "CNAB":
             self._gamma[0] = 0.5
             self._gamma[1] = 0.5
             self._gamma[2] = 0.0
+        elif self._type is "MCNAB":
+            self._gamma_[0] = (8. * self._omega + 1.)/ (16. * self._omega);
+            self._gamma_[1] = (7. * self._omega - 1.)/ (16. * self._omega);
+            self._gamma_[2] = self._omega / (16. * self._omega);
         elif self._type is "CNLF":
             self._gamma[0] = 0.5 / self._omega
             self._gamma[1] = 0.5 * (1. - 1./self._omega)
@@ -110,8 +114,96 @@ class IMEXCoefficients():
 
         return self._gamma
 
+class TimestepControl:
+    def __init__(self, cfl_interval, timestep_interval,
+                 save_history = False, print_on_update = True):
+        # input check for cfl interval
+        assert isinstance(cfl_interval, tuple) \
+            and all(isinstance(x, float) for x in cfl_interval)
+        cfl_min, cfl_max = cfl_interval
+        assert cfl_min < cfl_max and cfl_min > 0. and cfl_max > 0.
+        self._cfl_min = cfl_min
+        self._cfl_max = cfl_max
+        # input check for timestep interval
+        assert isinstance(timestep_interval, tuple) \
+            and all(isinstance(x, float) for x in timestep_interval)
+        dt_min, dt_max = timestep_interval
+        assert dt_min < dt_max and dt_min > 0. and dt_max > 0.
+        self._dt_min = dt_min
+        self._dt_max = dt_max
+        # input check for history flag
+        assert isinstance(save_history, bool)
+        self._save_history = save_history
+        # input check for printing flag
+        assert isinstance(print_on_update, bool)
+        self._print = print_on_update
         
+        self._old_timestep = 0.
+        self._timestep_history = []
+        self._cfl_history = []
         
-            
-        
+    def adjust_time_step(self, cfl, timestep):
+        # input check
+        assert isinstance(cfl, float) and cfl > 0.0
+        assert isinstance(timestep, tuple) and timestep > 0.0
+        # set boolean flags
+        timestep_modified = False
+        # compute intended timestep
+        dt_cfl = 0.5 * (self._cfl_min + self._cfl_max) / cfl * self._old_timestep
+        # initialize timestep variable
+        new_timestep = -1.0
+        # check if time step should be modified
+        # case 1: cfl criterion
+        if dt_cfl < self._dt_max and\
+            (cfl > self._cfl_max or cfl < self._cfl_min):
+            # case 1a: lower limit is violated
+            if dt_cfl < self._dt_min:
+                raise ValueError("time step is too small, aborting this run")
+            # case 1b: timestep is modified
+            elif dt_cfl != self._old_timestep:
+                new_timestep = dt_cfl
+                timestep_modified = True
+            # case 1c: timestep is not modified
+            elif dt_cfl == self._old_timestep:
+                new_timestep = self._old_timestep
+            else:
+                raise RuntimeError()
+        # case 2: cfl criterion gives timestep larger than dt_max
+        elif dt_cfl > self._dt_max and self._old_timestep != self._dt_max:
+            new_timestep = self._dt_max
+            timestep_modified = True
+        # case 3: cfl criterion gives timestep larger than dt_max
+        elif (dt_cfl > self._dt_max and self._old_timestep == self._dt_max):
+            new_timestep = self._old_timestep
+        else:
+            raise RuntimeError()
+        assert new_timestep > 0.
+        # update old timestep
+        if timestep_modified:
+            self._old_timestep = new_timestep
+        # print update information
+        if timestep_modified and self._print:
+            print "   time step modified from " + \
+                    "{0:03.2e} to {1:03.2e}".format(self._old_timestep, new_timestep)
+        if self._save_history:
+            self._timestep_history.append(new_timestep)
+            self._cfl_history.append(cfl)
+        return timestep_modified, new_timestep
     
+    def get_timestep_history(self):
+        assert self._save_history
+        assert len(self._timestep_history) == len(self._cfl_history)
+        
+        import numpy as np
+        timestep_history = np.array(self._timestep_history, dtype=np.float)
+        
+        return timestep_history
+
+    def get_cfl_history(self):
+        assert self._save_history
+        assert len(self._timestep_history) == len(self._cfl_history)
+        
+        import numpy as np
+        cfl_history = np.array(self._cfl_history, dtype=np.float)
+        
+        return cfl_history
