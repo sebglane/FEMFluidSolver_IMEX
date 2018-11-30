@@ -1,5 +1,13 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
+from enum import Enum
+
+class IMEXType(Enum):
+    CNAB = 0
+    MCNAB = 1
+    CNLF = 2
+    SBDF = 3
+
 class IMEXCoefficients():
     def __init__(self, type_string = "CNAB"):
         imex_types = ("CNAB", "MCNAB", "CNLF", "SBDF")
