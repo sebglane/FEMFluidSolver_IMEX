@@ -2,43 +2,26 @@
 # -*- coding: utf-8 -*-
 import dolfin as dlfn
 from time_stepping import IMEXCoefficients
-from enum import Enum
-
-class GravityType(Enum):
-    unit_vector_x = 0
-    unit_vector_y = 1
-    unit_vector_z = 2
-    radial = -1
-
-# TODO: create a parameter class/ dictionary
 
 class BuoyantFluidSolver:
-    def __init__(self, mesh, facet_ids, bcs, parameters):
+    def __init__(self, mesh, facet_ids, bcs, params):
         # input check: mesh
         assert isinstance(mesh, dlfn.Mesh)
         self._mesh = mesh
         self._space_dim = self._mesh.topology().dim()
         assert self._space_dim in (2,3)
-        # TODO: check other input parameters
+        # input check: facet_ids
         assert isinstance(facet_ids, dlfn.MeshFunctionSizet)
+        # input check: facet_ids
         # TODO: define structure for passing boundary conditions
         assert isinstance(bcs, (list, tuple))
-        assert isinstance(parameters, dict)
-        
+        # input check: parameter
+        from parameters import ParameterHandler
+        assert isinstance(params, ParameterHandler)
+        self._parameter = params
         # equation coefficients
-        if self._parameters.rotation == True:
-            tmp = (2.0 / self._parameters.ekman,
-                   1.0,
-                   self._parameters.rayleigh / self._parameters.prandtl,
-                   1.0 / self._parameters.prandtl)
-        else:
-            from math import sqrt
-            tmp = (0.0,
-                   sqrt(self._parameters.prandtl/ self._parameters.rayleigh),
-                   1.0,
-                   1.0 / sqrt(self._parameters.rayleigh * self._parameters.prandtl) )
+        tmp = self._parameters.coefficients()
         self._coefficients = tuple([dlfn.Constant(t) for t in tmp])
-
 
         # imex coefficients
         self._imex = IMEXCoefficients(self._parameters.imex_type)        
@@ -73,8 +56,8 @@ class BuoyantFluidSolver:
         old_timestep = self._parameters.timestep
         # initialize timestepping
         from time_stepping import TimestepControl
-        timestep_control = TimestepControl((self._parameters.cfl_min,
-                                            self._parameters.cfl_max,),
+        timestep_control = TimestepControl((self._parameters.min_cfl,
+                                            self._parameters.max_cfl,),
                                            (self._parameters.min_timestep,
                                             self._parameters.max_timestep,))
         # update flag
@@ -335,6 +318,7 @@ class BuoyantFluidSolver:
     def _get_gravity_vector(self):
         # constant gravity in radial direction
         assert hasattr(self, "space_dim")
+        from parameters import GravityType
         if self._parameters.gravity_type == GravityType.radial:
             if self._space_dim == 2:
                 gravity_vector = dlfn.Expression(
@@ -379,14 +363,19 @@ class BuoyantFluidSolver:
         ekman = self._parameters.ekman,
         rayleigh = self._parameters.rayleigh
         prandtl = self._parameters.prandtl,
-        if self._rotation:
-            print """You have chosen the rotating case with:
-        \t Ek = {0:3.2e},\t Ra = {1:3.2e},\t Pr = {2:3.2e} .""".format(ekman,rayleigh,prandtl)
+        if self._parameters.rotation:
+            print """You have chosen the rotating case with: \t
+            Ek = {0:3.2e},\t 
+            Ra = {1:3.2e},\t
+            Pr = {2:3.2e} .""".format(ekman,rayleigh,prandtl)
         else:
-            print """You have chosen the non-rotating case with:
-        \t Ra = {0:3.2e},\t Pr = {1:3.2e} .""".format(rayleigh, prandtl)
+            print """You have chosen the non-rotating case with: \t
+            Ra = {0:3.2e},\t Pr = {1:3.2e} .""".format(rayleigh, prandtl)
             
+        tmp = self._parameters.coefficients()
         print """
-        The related coefficients C1 to C4 are given by:
-        \t C1 = {0:3.2e},\t C2 = {1:3.2e},\t C3 = {2:3.2e},\t C4 = {3:3.2e} .\n""".format(
-            *map(lambda x: x.values()[0], self._coefficients))
+        The related coefficients C1 to C4 are given by: \t
+        C1 = {0:3.2e},\t
+        C2 = {1:3.2e},\t 
+        C3 = {2:3.2e},\t 
+        C4 = {3:3.2e} .\n""".format(*tmp)
