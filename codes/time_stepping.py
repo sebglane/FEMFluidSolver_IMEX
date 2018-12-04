@@ -9,10 +9,9 @@ class IMEXType(Enum):
     SBDF = 3
 
 class IMEXCoefficients():
-    def __init__(self, type_string = "CNAB"):
-        imex_types = ("CNAB", "MCNAB", "CNLF", "SBDF")
-        assert type_string in imex_types
-        self._type = type_string
+    def __init__(self, imex_type= IMEXType.CNAB):
+        assert isinstance(imex_type, IMEXType)
+        self._type = imex_type
 
         self._omega = -1.
         
@@ -27,15 +26,15 @@ class IMEXCoefficients():
     def _compute_alpha(self):
         if not self._update_alpha:
             return
-        if self._type is "SBDF":
+        if self._type is IMEXType.SBDF:
             self._alpha[0] = (1. + 2. * self._omega) / (1. + self._omega)
             self._alpha[1] = -(1. + self._omega)
             self._alpha[2] = (self._omega * self._omega) / (1. + self._omega)
-        elif self._type is "CNAB" or self._type is "MCNAB":
+        elif self._type is IMEXType.CNAB or self._type is IMEXType.MCNAB:
             self._alpha[0] = 1.0            
             self._alpha[1] = -1.0
             self._alpha[2] = 0.0
-        elif self._type is "CNLF":
+        elif self._type is IMEXType.CNLF:
             self._alpha[0] = 1. / (1. + self._omega);
             self._alpha[1] = self._omega - 1.;
             self._alpha[2] = -(self._omega * self._omega) / (1. + self._omega);
@@ -44,13 +43,13 @@ class IMEXCoefficients():
     def _compute_beta(self):
         if not self._update_beta:
             return
-        if self._type is "SBDF":
+        if self._type is IMEXType.SBDF:
             self._beta[0] = (1. + self._omega)
             self._beta[1] = -self._omega
-        elif self._type is "CNAB" or self._type is "MCNAB":
+        elif self._type is IMEXType.CNAB or self._type is IMEXType.MCNAB:
             self._beta[0] = (1. + 0.5 * self._omega)
             self._beta[1] = -0.5 * self._omega
-        elif self._type is "CNLF":
+        elif self._type is IMEXType.CNLF:
             self._beta[0] = 1.0
             self._beta[1] = 0.0
         self._update_gamma = False
@@ -58,19 +57,19 @@ class IMEXCoefficients():
     def _compute_gamma(self):
         if not self._update_gamma:
             return
-        if self._type is "SBDF":
+        if self._type is IMEXType.SBDF:
             self._gamma[0] = 1.0
             self._gamma[1] = 0.0
             self._gamma[2] = 0.0
-        elif self._type is "CNAB":
+        elif self._type is IMEXType.CNAB:
             self._gamma[0] = 0.5
             self._gamma[1] = 0.5
             self._gamma[2] = 0.0
-        elif self._type is "MCNAB":
+        elif self._type is IMEXType.MCNAB:
             self._gamma_[0] = (8. * self._omega + 1.)/ (16. * self._omega);
             self._gamma_[1] = (7. * self._omega - 1.)/ (16. * self._omega);
             self._gamma_[2] = self._omega / (16. * self._omega);
-        elif self._type is "CNLF":
+        elif self._type is IMEXType.CNLF:
             self._gamma[0] = 0.5 / self._omega
             self._gamma[1] = 0.5 * (1. - 1./self._omega)
             self._gamma[2] = 0.5
