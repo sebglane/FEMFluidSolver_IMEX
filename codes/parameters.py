@@ -119,6 +119,16 @@ class ParameterHandler(object):
     def prandtl(self, x):
         assert isinstance(x, float) and x > 0.0
         self.__prandtl = x
+
+    @property
+    def imex_type(self):
+        return self.__imex_type
+        
+    @imex_type.setter
+    def imex_type(self, x):
+        from time_stepping import IMEXType
+        assert isinstance(x, IMEXType)
+        self.__imex_type = x
     
     @property
     def n_steps(self):
@@ -270,16 +280,18 @@ class ParameterHandler(object):
         self.__temperature_degree = x
         
     def coefficients(self):
-        # equation coefficients
-        if self.__rotation is True:
-            tmp = (2.0 / self.__ekman,
-                   1.0,
-                   self.__rayleigh / self.__prandtl,
-                   1.0 / self.__prandtl)
-        else:
-            from math import sqrt
-            tmp = (0.0,
-                   sqrt(self.__prandtl/ self.__rayleigh),
-                   1.0,
-                   1.0 / sqrt(self.__rayleigh * self.__prandtl))
-        return tmp
+        if not hasattr(self, '__coefficients'):
+            # equation coefficients
+            if self.__rotation is True:
+                tmp = (2.0 / self.__ekman,
+                       1.0,
+                       self.__rayleigh / self.__prandtl,
+                       1.0 / self.__prandtl)
+            else:
+                from math import sqrt
+                tmp = (0.0,
+                       sqrt(self.__prandtl/ self.__rayleigh),
+                       1.0,
+                       1.0 / sqrt(self.__rayleigh * self.__prandtl))
+            self.__coefficients = tmp
+        return self.__coefficients
