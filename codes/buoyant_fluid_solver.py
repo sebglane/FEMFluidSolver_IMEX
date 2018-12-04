@@ -24,10 +24,13 @@ class BuoyantFluidSolver:
         assert self._space_dim in (2,3)
         # input check: facet_ids
         assert isinstance(facet_ids, dlfn.MeshFunctionSizet)
-        # input check: facet_ids
+        self._facet_markers = facet_ids
+        # input check: boundary conditions
         assert isinstance(bcs, dict)
         assert bcs.has_key("temperature")
         assert bcs.has_key("velocity")
+        # check if structure of dictionary is correct
+        ids_bc = set()
         for key, bc in bcs.iteritems():
             if key is "velocity":
                 bc_types = VelocityBCType
@@ -40,11 +43,16 @@ class BuoyantFluidSolver:
             const_type = bc_types.constant
             assert isinstance(bc, tuple)
             assert len(bc) > 0
+            # check sub boundary conditions
             for i in range(len(bc)):
                 assert isinstance(bc[i], tuple)
                 assert len(bc[i]) == 3
+                # check if type of bc is correct
                 assert bc[i][0] in bc_types
+                # check if type of facet_id is correct
                 assert isinstance(bc[i][1], int) and bc[i][1] > 0
+                ids_bc.add(bc[i][1])
+                # check if value type of bc is correct
                 if none_type is VelocityBCType.no_slip:
                     assert bc[i][2] is None
                 elif bc[i][2] is const_type:
@@ -56,28 +64,40 @@ class BuoyantFluidSolver:
                         assert isinstance(bc[i][2], float)
                 else:
                     isinstance(bc[i][2], dlfn.Expression)
-        # input check: parameter
+        # check if facet_ids of bcs occur in markers
+        ids_bc = tuple(ids_bc)
+        ids_bc_found = [False, ] * len(ids_bc)
+        for facet in dlfn.facets(self._mesh):
+            if facet.exterior():
+                if self._facet_markers[facet] in ids_bc:
+                    i = ids_bc.index(self._facet_markers[facet])
+                    ids_bc_found[i] = True
+                    if all(ids_bc_found):
+                        break
+        self._bcs = bcs
+        # input check: parameters
         from parameters import ParameterHandler
         assert isinstance(params, ParameterHandler)
         self._parameters = params
         # equation coefficients
         tmp = self._parameters.coefficients()
         self._coefficients = tuple([dlfn.Constant(t) for t in tmp])
-
         # imex coefficients
         self._imex = IMEXCoefficients(self._parameters.imex_type)        
-
-        # initialize dolfin constant
+        # initialize timestep as dolfin constant
+        self._timestep = dlfn.Constant(1.0)
         self._timestep.assign(self._parameters.timestep)
-
         # runtime flags
         self._rebuild_matrices = True
-        
         # helpful constants
+        self._one = dlfn.Constant(1.0)
+        self._omega = dlfn.Constant(1.0)
         if self._space_dim == 2:
             self._null_vector = dlfn.Constant((0.0, 0.0))
-        else:
+        elif self._space_dim == 3:
             self._null_vector = dlfn.Constant((0.0, 0.0, 0.0))
+        else:
+            raise ValueError()
         
         print "The system's version of FEniCS is ", dlfn.dolfin_version(), "."
 
@@ -88,6 +108,7 @@ class BuoyantFluidSolver:
         
         self._setup_boundary_conditions()
         
+        self._update_imex_coefficients()
         self._setup_problem()
         
         self._setup_initial_condition()
@@ -102,7 +123,7 @@ class BuoyantFluidSolver:
                                            (self._parameters.min_timestep,
                                             self._parameters.max_timestep,))
         # update flag
-        update_imex = True
+        update_imex = False
         # dolfin timer 
         dlfn.tic()
         # time loop
@@ -158,7 +179,6 @@ class BuoyantFluidSolver:
             step += 1
         print "elapsed simulation time: ", dlfn.toc(), " sec"
         
-        
     def _solve(self, step):
         assert hasattr(self, "_solver")
         if self._parameters.use_assembler_method:
@@ -202,12 +222,60 @@ class BuoyantFluidSolver:
         ndofs_temperature = self._Wh.sub(2).dim()
         print "DOFs velocity : ", ndofs_velocity, "\n" \
                 "DOFs pressure : ", ndofs_pressure, "\n" \
-                "DOFs temperature : ", ndofs_temperature 
+                "DOFs temperature : ", ndofs_temperature
+        # functions
+        self._sol = dlfn.Function(self._Wh)
+        self._sol0 = dlfn.Function(self._Wh)
+        self._sol00 = dlfn.Function(self._Wh)
+        self._v0, _, self._T0 = dlfn.split(self._sol0)
+        self._v00, _, self._T00 = dlfn.split(self._sol00)
+    
+    def _setup_boundary_conditions(self):
+        assert hasattr(self, "_bcs")
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_facet_markers")
+        self._dirichlet_bcs = []
+        # temperature part
+        print "   setup temperature boundary conditions..."
+        temperature_space = self._Wh.sub(2)
+        temperature_bcs = self._bcs["temperature"]
+        for bc in temperature_bcs:
+            if bc[0] is TemperatureBCType.constant:
+                const_function = dlfn.Constant(bc[2])
+                self._dirichlet_bcs.append(
+                    dlfn.DirichletBC(temperature_space, const_function,
+                                     self._facet_markers, bc[1]))
+            elif bc[0] is TemperatureBCType.function:
+                self._dirichlet_bcs.append(
+                    dlfn.DirichletBC(temperature_space, bc[2],
+                                     self._facet_markers, bc[1]))
+            else: 
+                raise NotImplementedError()
+        # velocity part
+        print "   setup velocity boundary conditions..."
+        velocity_space = self._Wh.sub(0)
+        velocity_bcs = self._bcs["velocity"]
+        for bc in velocity_bcs:
+            if bc[0] is VelocityBCType.no_slip:
+                const_function = self._null_vector
+                self._dirichlet_bcs.append(
+                    dlfn.DirichletBC(velocity_space, const_function,
+                                     self._facet_markers, bc[1]))
+            elif bc[0] is VelocityBCType.constant:
+                assert len(bc[2]) == self._space_dim
+                const_function = dlfn.Constant(bc[2])
+                self._dirichlet_bcs.append(
+                    dlfn.DirichletBC(velocity_space, const_function,
+                                     self._facet_markers, bc[1]))
+            elif bc[0] is VelocityBCType.function:
+                self._dirichlet_bcs.append(
+                    dlfn.DirichletBC(velocity_space, bc[2],
+                                     self._facet_markers, bc[1]))
+            else: 
+                raise NotImplementedError()                
 
     def _update_imex_coefficients(self, step=0, omega=1.0):
         assert hasattr(self, "_imex")
-        assert hasattr(self, "_timestep")
-        assert hasattr(self, "_old_timestep")
         if not hasattr(self, "_imex_alpha"):
             self._imex_alpha = [dlfn.Constant(0.), ] * 3
         if not hasattr(self, "_imex_beta"):
@@ -224,9 +292,12 @@ class BuoyantFluidSolver:
             for i in xrange(2):
                 self._imex_beta[i].assign(beta[i])
         else:
-            # TODO: Implemented CN scheme
-            raise NotImplementedError
-            
+            # Crank Nicholson scheme
+            self._imex_alpha[0].assign(1.0)
+            self._imex_alpha[1].assign(-1.0)
+            self._imex_beta[1].assign(1.0)
+            self._imex_gamma[0].assign(0.5)
+            self._imex_gamma[1].assign(0.5)
 
     def _setup_problem(self):
         assert hasattr(self, "_parameters")
@@ -241,7 +312,7 @@ class BuoyantFluidSolver:
         assert hasattr(self, "_T00")
         #=======================================================================
         # retrieve imex coefficients
-        a, b, c = self._get_imex_coefficients()
+        a, b, c = self._imex_alpha, self._imex_beta, self._imex_gamma
         #=======================================================================
         # define auxiliary operators
         from dolfin import inner, div, grad, dot
@@ -281,10 +352,10 @@ class BuoyantFluidSolver:
         linear_term_velocity =  c[1] * grad(v0) \
                               + c[2] * grad(v00)
         rhs_momentum -= timestep * self._coefficients[1] \
-                            * dot(linear_term_velocity, grad(del_v)) * dV
+                            * inner(linear_term_velocity, grad(del_v)) * dV
         # 2d) rhs momentum equation: coriolis term
         if self._parameters.rotation is True:
-            assert self._parameters.coefficients[0] != 0.0
+            assert self._coefficients[0] != 0.0
             print "   adding rotation to the model...\n"
             # defining extrapolated velocity
             extrapolated_velocity = (self._one + self._omega) * v0 \
@@ -300,7 +371,7 @@ class BuoyantFluidSolver:
                                 * dot(coriolis_term, del_v) * dV
         # 2e) rhs momentum equation: buoyancy term
         if self._parameters.buoyancy is True:
-            assert self._parameters.coefficients[2] != 0.0
+            assert self._coefficients[2] != 0.0
             print "   adding buoyancy to the model...\n"
             # defining extrapolated temperature
             extrapolated_temperature = (self._one + self._omega) * T0 \
@@ -319,8 +390,8 @@ class BuoyantFluidSolver:
                                           + a[2] * T00
         rhs_energy = -dot(time_derivative_term_temperature, del_T) * dV
         # 4b) rhs energy equation: nonlinear term
-        nonlinear_term_temperature =  b[0] * dot(grad(v0), T0) \
-                                    + b[1] * dot(grad(v00), T00)
+        nonlinear_term_temperature =  b[0] * dot(v0, grad(T0)) \
+                                    + b[1] * dot(v00, grad(T00))
         rhs_energy -= timestep * nonlinear_term_temperature * del_T * dV
         # 4c) rhs energy equation: linear term
         linear_term_temperature =  c[1] * grad(T0) \
@@ -335,14 +406,15 @@ class BuoyantFluidSolver:
             self._setup_bcs()
         if self._parameters.use_assembler_method:
             # system assembler
-            self._assembler = dlfn.SystemAssembler(lhs, rhs, bcs=self._bcs)
+            self._assembler = dlfn.SystemAssembler(lhs, rhs,
+                                                   bcs=self._dirichlet_bcs)
             self._system_matrix = dlfn.Matrix()
             self._system_rhs = dlfn.Vector()
             self._solver = dlfn.LUSolver(self._system_matrix)
         else:
             # linear problem
             problem = dlfn.LinearVariationalProblem(lhs, rhs, self._sol,
-                                                    bcs=self._bcs)
+                                                    bcs=self._dirichlet_bcs)
             self._solver = dlfn.LinearVariationalSolver(problem)
     
     def _compute_cfl_number(self, velocity, time_step):
@@ -358,7 +430,7 @@ class BuoyantFluidSolver:
     
     def _get_gravity_vector(self):
         # constant gravity in radial direction
-        assert hasattr(self, "space_dim")
+        assert hasattr(self, "_space_dim")
         from parameters import GravityType
         if self._parameters.gravity_type == GravityType.radial:
             if self._space_dim == 2:
@@ -401,9 +473,9 @@ class BuoyantFluidSolver:
         | Non-rotating case | 0     | sqrt(Pr / Ra) | 1       | 1 / sqrt(Ra * Pr) |
         | Rotating case     | Ek    | 1             | Ra / Pr | 1 / Pr            |
         +-------------------+-------+---------------+---------+-------------------+"""
-        ekman = self._parameters.ekman,
+        ekman = self._parameters.ekman
         rayleigh = self._parameters.rayleigh
-        prandtl = self._parameters.prandtl,
+        prandtl = self._parameters.prandtl
         if self._parameters.rotation:
             print """You have chosen the rotating case with: \t
             Ek = {0:3.2e},\t 
