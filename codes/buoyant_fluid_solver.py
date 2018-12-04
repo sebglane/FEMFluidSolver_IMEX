@@ -3,6 +3,18 @@
 import dolfin as dlfn
 from time_stepping import IMEXCoefficients
 
+from enum import Enum
+
+class VelocityBCType(Enum):
+    no_slip = 0
+    slip = 1
+    constant = 2
+    function = 3
+
+class TemperatureBCType(Enum):
+    constant = 0
+    function = 1
+
 class BuoyantFluidSolver:
     def __init__(self, mesh, facet_ids, bcs, params):
         # input check: mesh
@@ -13,12 +25,41 @@ class BuoyantFluidSolver:
         # input check: facet_ids
         assert isinstance(facet_ids, dlfn.MeshFunctionSizet)
         # input check: facet_ids
-        # TODO: define structure for passing boundary conditions
-        assert isinstance(bcs, (list, tuple))
+        assert isinstance(bcs, dict)
+        assert bcs.has_key("temperature")
+        assert bcs.has_key("velocity")
+        for key, bc in bcs.iteritems():
+            if key is "velocity":
+                bc_types = VelocityBCType
+                none_type = VelocityBCType.no_slip
+            elif key is "temperature":
+                bc_types = TemperatureBCType
+                none_type = None
+            else:
+                raise ValueError()
+            const_type = bc_types.constant
+            assert isinstance(bc, tuple)
+            assert len(bc) > 0
+            for i in range(len(bc)):
+                assert isinstance(bc[i], tuple)
+                assert len(bc[i]) == 3
+                assert bc[i][0] in bc_types
+                assert isinstance(bc[i][1], int) and bc[i][1] > 0
+                if none_type is VelocityBCType.no_slip:
+                    assert bc[i][2] is None
+                elif bc[i][2] is const_type:
+                    if key is "velocity":
+                        assert isinstance(bc[i][2], (list, tuple))
+                        assert len(bc[i][2]) == self._space_dim
+                        assert all(isinstance(x, float) for x in bc[i][2])
+                    elif key is "temperature":
+                        assert isinstance(bc[i][2], float)
+                else:
+                    isinstance(bc[i][2], dlfn.Expression)
         # input check: parameter
         from parameters import ParameterHandler
         assert isinstance(params, ParameterHandler)
-        self._parameter = params
+        self._parameters = params
         # equation coefficients
         tmp = self._parameters.coefficients()
         self._coefficients = tuple([dlfn.Constant(t) for t in tmp])
