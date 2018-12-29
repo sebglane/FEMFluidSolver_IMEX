@@ -115,7 +115,7 @@ class BuoyantFluidSolver:
         
         self._setup_problem()
         
-        self._setup_initial_condition()
+        self._setup_initial_conditions()
         
         # initialize timestep
         timestep = self._parameters.timestep
