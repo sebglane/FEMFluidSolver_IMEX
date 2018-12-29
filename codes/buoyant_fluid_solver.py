@@ -16,7 +16,7 @@ class TemperatureBCType(Enum):
     function = 1
 
 class BuoyantFluidSolver:
-    def __init__(self, mesh, facet_ids, bcs, params):
+    def __init__(self, mesh, facet_ids, bcs, params, ics = dict()):
         # input check: mesh
         assert isinstance(mesh, dlfn.Mesh)
         self._mesh = mesh
@@ -79,6 +79,9 @@ class BuoyantFluidSolver:
         from parameters import ParameterHandler
         assert isinstance(params, ParameterHandler)
         self._parameters = params
+        # input check: initial conditions
+        assert isinstance(ics, dict)
+        self._ics = ics
         # equation coefficients
         tmp = self._parameters.coefficients()
         self._coefficients = tuple([dlfn.Constant(t) for t in tmp])
@@ -109,9 +112,10 @@ class BuoyantFluidSolver:
         self._setup_boundary_conditions()
         
         self._update_imex_coefficients()
+        
         self._setup_problem()
         
-        self._setup_initial_condition()
+        self._setup_initial_conditions()
         
         # initialize timestep
         timestep = self._parameters.timestep
@@ -148,8 +152,6 @@ class BuoyantFluidSolver:
                 timestep /= 10.0
                 # recompute time step
                 continue
-#            # time step is accepted
-#            time_logging[step] = time, cfl, dt
             #===========================================================================
             # modify time step
             if step != 0 and self._parameters.adaptive_time_stepping:
@@ -273,6 +275,46 @@ class BuoyantFluidSolver:
                                      self._facet_markers, bc[1]))
             else: 
                 raise NotImplementedError()                
+                
+    def _setup_initial_conditions(self):
+        assert hasattr(self, "_ics")
+        assert hasattr(self, "_Wh")
+        print "   setup initial conditions..."
+        # velocity part
+        if self._ics.has_key("velocity"):
+            initial_velocity_expr = self._ics["velocity"]
+            assert isinstance(initial_velocity_expr, dlfn.Expression)
+            assert initial_velocity_expr.ufl_shape[0] == self._space_dim
+            initial_velocity = dlfn.interpolate(initial_velocity_expr,
+                                                self._Wh.sub(0).collapse())
+        else:
+            initial_velocity = dlfn.interpolate(self._null_vector,
+                                                self._Wh.sub(0).collapse())
+        # pressure part
+        if self._ics.has_key("pressure"):
+            initial_pressure_expr = self._ics["pressure"]
+            assert isinstance(initial_pressure_expr, dlfn.Expression)
+            assert len(initial_pressure_expr.ufl_shape) == 0
+            initial_pressure= dlfn.interpolate(initial_pressure_expr,
+                                               self._Wh.sub(1).collapse())
+        else:
+            initial_pressure = dlfn.interpolate(0.,
+                                                self._Wh.sub(1).collapse())
+        # temperature part
+        if self._ics.has_key("pressure"):
+            initial_temperature_expr = self._ics["temperature"]
+            assert isinstance(initial_temperature_expr, dlfn.Expression)
+            assert len(initial_temperature_expr.ufl_shape) == 0
+            initial_temperature = dlfn.interpolate(initial_temperature_expr,
+                                                   self._Wh.sub(2).collapse())
+        else:
+            initial_temperature = dlfn.interpolate(0.,
+                                                   self._Wh.sub(2).collapse())
+        # assign initial condition
+        dlfn.assign(self._sol0, [initial_velocity,
+                                 initial_pressure,
+                                 initial_temperature])
+
 
     def _update_imex_coefficients(self, step=0, omega=1.0):
         assert hasattr(self, "_imex")

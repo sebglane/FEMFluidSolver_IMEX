@@ -25,14 +25,22 @@ params.ekman = 1e-3
 params.rayleigh = 1e5
 params.prandtl = 1.0
 #------------------------------------------------------------------------------#
+# model parameters
+inner_temperature = 0.5
+outer_temperature = -0.5
+# geometry parameters
 aspect_ratio = 0.35
-n_initial_refinements = 1
-#------------------------------------------------------------------------------#
-# TODO: I think this and the boundary ids can go to a grid generator function
-# mesh creation
-# inner / outer radius
 outer_radius = 1. 
 inner_radius = aspect_ratio * outer_radius
+n_initial_refinements = 1
+# auxiliary ids
+inner_circle_id = 1
+outer_circle_id = 2
+#------------------------------------------------------------------------------#
+# mesh creation
+#
+# TODO: I think this and the boundary ids can go to a grid generator function
+#
 # dolfin mshr module
 from dolfin import Point
 from mshr import Circle, generate_mesh
@@ -48,7 +56,7 @@ for i in range(n_initial_refinements):
 from dolfin import MeshFunctionSizet, SubDomain
 facet_marker = MeshFunctionSizet(mesh, mesh.topology().dim() - 1)
 facet_marker.set_all(0)
-# length of smalles element
+# size of smallest element
 hmin = mesh.hmin()
 # inner circle boundary
 class InnerCircle(SubDomain):
@@ -68,30 +76,32 @@ class OuterCircle(SubDomain):
         return result and on_boundary
 # mark boundaries
 gamma_inner = InnerCircle()
-gamma_inner.mark(facet_marker, 1)
+gamma_inner.mark(facet_marker, inner_circle_id)
 gamma_outer = OuterCircle()
-gamma_outer.mark(facet_marker, 2)
+gamma_outer.mark(facet_marker, outer_circle_id)
 #------------------------------------------------------------------------------#
-# TODO: I think this can go to an initial condition class
-inner_temperature = 0.5
-outer_temperature = -0.5
-if mesh.topology().dim() == 2:    
+# initial condition for temperature
+#
+# TODO: I think this could go to an initial condition class
+#
+if mesh.topology().dim() == 2:
     radius_string = "sqrt( pow(x[0],2) + pow(x[1],2))"
 else:
     radius_string = "sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2))"
-# initial condition for temperature
 from dolfin import Expression
-#initial_temperature = Expression(
-#    "(To - Ti) / (ro - ri) * ({0} -ri) + Ti ".format(radius_string),
-#    ri = inner_radius, ro = outer_radius,
-#    Ti = inner_temperature, To = outer_temperature, degree = 2)
+ics = dict()
+ics["temperature"] = Expression(
+            "(To - Ti) / (ro - ri) * (sqrt( pow(x[0],2) + pow(x[1],2)) -ri) + Ti ",
+            ri = inner_radius, ro = outer_radius,
+            Ti = inner_temperature, To = outer_temperature,
+            degree = 2)
 #------------------------------------------------------------------------------#
 from buoyant_fluid_solver import VelocityBCType, TemperatureBCType
 bcs = dict()
-bcs["velocity"] = ((VelocityBCType.no_slip , 1, None), 
-                   (VelocityBCType.no_slip , 2, None))
-bcs["temperature"] = ((TemperatureBCType.constant, 1, 0.5), 
-                      (TemperatureBCType.constant, 2, -0.5))
+bcs["velocity"] = ((VelocityBCType.no_slip , inner_circle_id, None), 
+                   (VelocityBCType.no_slip , outer_circle_id, None))
+bcs["temperature"] = ((TemperatureBCType.constant, inner_circle_id, inner_temperature), 
+                      (TemperatureBCType.constant, outer_circle_id, outer_temperature))
 #----------------------------------------------------------------------------#
 from buoyant_fluid_solver import BuoyantFluidSolver
 solver = BuoyantFluidSolver(mesh, facet_marker, bcs, params)
