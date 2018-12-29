@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from parameters import ParameterHandler
+from parameters import ParameterHandler, GravityType
 #------------------------------------------------------------------------------#
 params = ParameterHandler()
 # runtime parameters
@@ -20,6 +20,7 @@ params.min_timestep = 1e-12
 # dimensionless constants
 params.rotation = True
 params.buoyancy = True
+params.gravity_type = GravityType.radial
 params.ekman = 1e-3
 params.rayleigh = 1e5
 params.prandtl = 1.0
@@ -93,4 +94,5 @@ bcs["temperature"] = ((TemperatureBCType.constant, 1, 0.5),
                       (TemperatureBCType.constant, 2, -0.5))
 #----------------------------------------------------------------------------#
 from buoyant_fluid_solver import BuoyantFluidSolver
-BuoyantFluidSolver(mesh, facet_marker, bcs, params)
+solver = BuoyantFluidSolver(mesh, facet_marker, bcs, params)
+solver.run()
