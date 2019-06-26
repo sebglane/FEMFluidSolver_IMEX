@@ -52,7 +52,7 @@ class IMEXCoefficients():
         elif self._type is IMEXType.CNLF:
             self._beta[0] = 1.0
             self._beta[1] = 0.0
-        self._update_gamma = False
+        self._update_beta = False
 
     def _compute_gamma(self):
         if not self._update_gamma:
@@ -126,14 +126,16 @@ class TimestepControl:
                  save_history = False, print_on_update = True):
         # input check for cfl interval
         assert isinstance(cfl_interval, tuple) \
-            and all(isinstance(x, float) for x in cfl_interval)
+            and all(isinstance(x, float) for x in cfl_interval) \
+            and len(cfl_interval) == 2
         cfl_min, cfl_max = cfl_interval
         assert cfl_min < cfl_max and cfl_min > 0. and cfl_max > 0.
         self._cfl_min = cfl_min
         self._cfl_max = cfl_max
         # input check for timestep interval
         assert isinstance(timestep_interval, tuple) \
-            and all(isinstance(x, float) for x in timestep_interval)
+            and all(isinstance(x, float) for x in timestep_interval) \
+            and len(timestep_interval) == 2
         dt_min, dt_max = timestep_interval
         assert dt_min < dt_max and dt_min > 0. and dt_max > 0.
         self._dt_min = dt_min
@@ -152,42 +154,43 @@ class TimestepControl:
     def adjust_time_step(self, cfl, timestep):
         # input check
         assert isinstance(cfl, float) and cfl > 0.0
-        assert isinstance(timestep, tuple) and timestep > 0.0
-        # set boolean flags
-        timestep_modified = False
+        assert isinstance(timestep, float) and timestep > 0.0
         # compute intended timestep
-        dt_cfl = 0.5 * (self._cfl_min + self._cfl_max) / cfl * self._old_timestep
-        # initialize timestep variable
-        new_timestep = -1.0
+        dt_cfl = 0.5 * (self._cfl_min + self._cfl_max) / cfl * timestep
         # check if time step should be modified
         # case 1: cfl criterion
         if dt_cfl < self._dt_max and\
             (cfl > self._cfl_max or cfl < self._cfl_min):
             # case 1a: lower limit is violated
             if dt_cfl < self._dt_min:
-                raise ValueError("time step is too small, aborting this run")
+                raise ValueError("time step is too small, aborting this run\n"
+                    + "dt_cfl = {0:3.2e}, dt_min = {1:3.2e}\n".format(dt_cfl, self._dt_min)
+                    + "cfl = {0:3.2e}, old_timestep = {1:3.2e}".format(cfl, self._old_timestep))
             # case 1b: timestep is modified
             elif dt_cfl != self._old_timestep:
-                new_timestep = dt_cfl
-                timestep_modified = True
+                self._finalize(True, cfl, dt_cfl)
+                return True, dt_cfl, dt_cfl / timestep
             # case 1c: timestep is not modified
             elif dt_cfl == self._old_timestep:
-                new_timestep = self._old_timestep
+                self._finalize(False, cfl)
+                return False, self._old_timestep, None
             else:
                 raise RuntimeError()
         # case 2: cfl criterion gives timestep larger than dt_max
         elif dt_cfl > self._dt_max and self._old_timestep != self._dt_max:
-            new_timestep = self._dt_max
-            timestep_modified = True
+            self._finalize(True, cfl, self._dt_max)
+            return True, self._dt_max, self._dt_max / timestep
         # case 3: cfl criterion gives timestep larger than dt_max
         elif (dt_cfl > self._dt_max and self._old_timestep == self._dt_max):
-            new_timestep = self._old_timestep
+            self._finalize(False, cfl)
+            return False, self._old_timestep, None
+        elif dt_cfl < self._dt_max and cfl < self._cfl_max and cfl > self._cfl_min:
+            self._finalize(False, cfl)
+            return False, self._old_timestep, None
         else:
             raise RuntimeError()
-        assert new_timestep > 0.
-        # update old timestep
-        if timestep_modified:
-            self._old_timestep = new_timestep
+            
+    def _finalize(self, timestep_modified, cfl, new_timestep = None):
         # print update information
         if timestep_modified and self._print:
             print "   time step modified from " + \
@@ -195,7 +198,8 @@ class TimestepControl:
         if self._save_history:
             self._timestep_history.append(new_timestep)
             self._cfl_history.append(cfl)
-        return timestep_modified, new_timestep
+        if timestep_modified:
+            self._old_timestep = new_timestep
     
     def get_timestep_history(self):
         assert self._save_history

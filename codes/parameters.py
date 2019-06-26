@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
-from enum import Enum
-
-class GravityType(Enum):
-    unit_vector_x = 0
-    unit_vector_y = 1
-    unit_vector_z = 2
-    radial = -1
-    
 class ParameterHandler(object):
     def __init__(self):
+        # geometry parameters
+        from grid_generator import GeometryType
+        self.__geometry_type = GeometryType.spherical_annulus
+        self.__dim = 2
+        self.__radii = (0.35, 1.0)
+        
         # physical parameters
         self.__rotation = False
         self.__buoyancy = True
@@ -31,7 +29,7 @@ class ParameterHandler(object):
         from time_stepping import IMEXType
         self.__imex_type = IMEXType.CNAB
         self.__n_steps = 1
-        self.__timestep = 1.0
+        self.__timestep = 1.0e-5
         self.__t_end = 1.0
         
         # time stepping control parameters
@@ -42,9 +40,45 @@ class ParameterHandler(object):
         self.__min_cfl = None
         
         # monitoring frequencies
+        self.__cfl_frequency = 100
         self.__output_frequency = 100
-        self.__rms_frequency = 10
+        self.__global_avg_frequency = 10
         self.__checkpoint_frequency = 100
+
+    @property
+    def geometry_type(self):
+        return self.__geometry_type
+    
+    @geometry_type.setter
+    def geometry_type(self, x):
+        from grid_generator import GeometryType
+        assert isinstance(x, GeometryType)
+        self.__geometry_type = x
+        
+    @property
+    def dim(self):
+        return self.__dim
+    
+    @dim.setter
+    def dim(self, x):
+        assert isinstance(x, int) and (x == 2 or x == 3)
+        self.__dim = x
+
+    @property
+    def radii(self):
+        from grid_generator import GeometryType
+        assert self.__geometry_type is GeometryType.spherical_annulus
+        return self.__radii
+    
+    @radii.setter
+    def radii(self, x):
+        from grid_generator import GeometryType
+        assert self.__geometry_type is GeometryType.spherical_annulus
+        assert isinstance(x, (tuple, list)) and len(x) == 2
+        assert isinstance(x[0], float) and x[0] > 0.0
+        assert isinstance(x[1], float) and x[1] > 0.0
+        assert x[0] < x[1]
+        self.__radii = x
     
     @property
     def rotation(self):
@@ -61,6 +95,7 @@ class ParameterHandler(object):
     
     @gravity_type.setter
     def gravity_type(self, x):
+        from gravity_field import GravityType
         assert isinstance(x, GravityType)
         self.__gravity_type = x
     
@@ -215,6 +250,15 @@ class ParameterHandler(object):
         self.__min_cfl = x
 
     @property
+    def cfl_frequency(self):
+        return self.__cfl_frequency
+        
+    @cfl_frequency.setter
+    def cfl_frequency(self, x):
+        assert isinstance(x, int)  and x >= 1
+        self.__cfl_frequency = x
+
+    @property
     def output_frequency(self):
         return self.__output_frequency
         
@@ -224,14 +268,13 @@ class ParameterHandler(object):
         self.__output_frequency = x
 
     @property
-    def rms_frequency(self):
-        return self.__rms_frequency
+    def global_avg_frequency(self):
+        return self.__global_avg_frequency
         
-    @rms_frequency.setter
-    def rms_frequency(self, x):
+    @global_avg_frequency.setter
+    def global_avg_frequency(self, x):
         assert isinstance(x, int)  and x >= 1
-        self.__rms_frequency = x
-
+        self.__global_avg_frequency = x
     @property
     def checkpoint_frequency(self):
         return self.__checkpoint_frequency
