@@ -3,6 +3,11 @@
 import dolfin as dlfn
 from time_stepping import IMEXCoefficients
 
+from enum import Enum
+class SolverType(Enum):
+    imex_solver = 0
+    implicit_solver = 1
+
 # define auxiliary operators
 def a_op(phi, psi):
     from dolfin import inner, grad
@@ -14,7 +19,6 @@ def b_op(phi, psi):
 def cross_2D(phi):
     from dolfin import as_vector
     return as_vector([phi[1], -phi[0]])
-
 
 class BuoyantFluidSolver:
     def __init__(self, mesh, facet_ids, bcs, params, ics = dict()):
@@ -125,7 +129,10 @@ class BuoyantFluidSolver:
         
         self._update_imex_coefficients()
         
-        self._setup_problem()
+        if self._parameters.solver_type is SolverType.imex_solver:
+            self._setup_imex_problem()
+        elif self._parameters.solver_type is SolverType.implicit_solver:
+            self._setup_implicit_problem()
         
         self._setup_initial_conditions()
         
@@ -196,7 +203,7 @@ class BuoyantFluidSolver:
         
     def _solve(self, step):
         assert hasattr(self, "_solver")
-        if self._parameters.use_assembler_method:
+        if self._parameters.use_assembler_method and isinstance(self._solver, dlfn.LUSolver):
             assert hasattr(self, "_assembler")
             assert hasattr(self, "_system_matrix")
             assert hasattr(self, "_system_rhs")
@@ -330,7 +337,72 @@ class BuoyantFluidSolver:
                                  initial_pressure,
                                  initial_temperature])
     
-    def _setup_problem(self):
+    def _setup_implicit_problem(self):
+        assert hasattr(self, "_parameters")
+        assert hasattr(self, "_mesh")
+        assert hasattr(self, "_Wh")
+        assert hasattr(self, "_coefficients")
+        assert hasattr(self, "_one")
+        assert hasattr(self, "_omega")
+        assert hasattr(self, "_v0")
+        assert hasattr(self, "_v00")
+        assert hasattr(self, "_T0")
+        assert hasattr(self, "_T00")
+        #=======================================================================
+        # retrieve imex coefficients
+        a = self._imex_alpha
+        #=======================================================================
+        # trial and test function
+        (del_v, del_p, del_T) = dlfn.TestFunctions(self._Wh)
+        v, p, T = self._sol.split()
+        # volume element
+        dV = dlfn.Measure("dx", domain = self._mesh)
+        # reference to time step
+        timestep = self._timestep
+        #=======================================================================
+        from dolfin import dot, grad
+        # 1) momentum equation
+        momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
+                     + dot(dot(grad(v), v), del_v) * dV \
+                     + self._coefficients[1] * a_op(v, del_v) * dV \
+                     - b_op(del_v, p) * dV \
+                     - b_op(v, del_p) * dV
+        # 2d) momentum equation: coriolis term
+        if self._parameters.rotation is True:
+            assert self._coefficients[0] != 0.0
+            print "   adding rotation to the model..."
+            # add Coriolis term
+            if self._space_dim == 2:
+                coriolis_term = cross_2D(v)
+                momentum_eqn += self._coefficients[0] * (-v[1] * del_v[0] + v[0] * del_v[1]) * dV
+            elif self._space_dim == 3:
+                from dolfin import cross
+                coriolis_term = cross(self._rotation_vector, v)
+                momentum_eqn += self._coefficients[0] * dot(coriolis_term, del_v) * dV
+        # 2e) rhs momentum equation: buoyancy term
+        if self._parameters.buoyancy is True:
+            assert self._coefficients[2] != 0.0
+            print "   adding buoyancy to the model..."
+            # buoyancy term
+            momentum_eqn -= self._coefficients[2] * T * dot(self._gravity, del_v) * dV
+        #=======================================================================        
+        # 3) energy equation
+        energy_eqn = (a[0] * T + a[1] * self._T0 + a[2] * self._T00)/ timestep * del_T * dV \
+                   + dot(v, grad(T)) * del_T * dV \
+                   + self._coefficients[3] * a_op(T, del_T) * dV
+        #=======================================================================        
+        # full problem
+        self._eqn = momentum_eqn + energy_eqn
+        if not hasattr(self, "_dirichlet_bcs"):
+            self._setup_boundary_conditons()
+        self._jacobian = dlfn.derivative(self._eqn, self._sol,
+                                         du = dlfn.TrialFunction(self._Wh))
+        problem = dlfn.NonlinearVariationalProblem(self._eqn, self._sol,
+                                                   J = self._jacobian,
+                                                   bcs=self._dirichlet_bcs)
+        self._solver = dlfn.NonlinearVariationalSolver(problem)
+    
+    def _setup_imex_problem(self):
         assert hasattr(self, "_parameters")
         assert hasattr(self, "_mesh")
         assert hasattr(self, "_Wh")

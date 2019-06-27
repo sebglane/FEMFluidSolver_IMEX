@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from parameters import ParameterHandler
 from gravity_field import GravityType
+from buoyant_fluid_solver import SolverType
 #------------------------------------------------------------------------------#
 params = ParameterHandler()
 # geometry parameters
@@ -15,6 +16,7 @@ params.global_avg_frequency = 10
 params.cfl_frequency = 10
 # solver parameters
 params.use_assembler_method = True
+params.solver_type = SolverType.implicit_solver
 # time stepping parameters
 params.adaptive_time_stepping = True
 params.timestep = 5e-5
@@ -23,11 +25,11 @@ params.max_cfl = 0.6
 params.max_timestep = 1e-4
 params.min_timestep = 1e-9
 # dimensionless constants
-params.rotation = True
+params.rotation = False
 params.buoyancy = True
 params.gravity_type = GravityType.radial_linear
-params.ekman = 1e-3
-params.rayleigh = 1e5
+#params.ekman = 1e-3
+params.rayleigh = 1e3
 params.prandtl = 1.0
 #------------------------------------------------------------------------------#
 # auxiliary ids
