@@ -40,13 +40,21 @@ def spherical_shell(dim, radii, boundary_ids, n_refinements = 0):
     
     # mesh generation
     from dolfin import Point
-    center = Point(0., 0.)
+    if dim == 2:
+        center = Point(0., 0.)
+    elif dim == 3:
+        center = Point(0., 0., 0.)
     
-    from mshr import Circle, generate_mesh
-    domain = Circle(center, ro) \
-           - Circle(center, ri)
-    mesh = generate_mesh(domain, 120)
-    
+    from mshr import Sphere, Circle, generate_mesh
+    if dim == 2:
+        domain = Circle(center, ro) \
+               - Circle(center, ri)
+        mesh = generate_mesh(domain, 75)
+    elif dim == 3:
+        domain = Sphere(center, ro) \
+               - Sphere(center, ri)
+        mesh = generate_mesh(domain, 40)
+               
     # mesh refinement
     from dolfin import refine
     for i in range(n_refinements):
@@ -57,16 +65,19 @@ def spherical_shell(dim, radii, boundary_ids, n_refinements = 0):
     facet_marker = MeshFunctionSizet(mesh, mesh.topology().dim() - 1)
     facet_marker.set_all(0)
     
-    
     # size of smallest element
     hmin = mesh.hmin()
+    
     # inner circle boundary
     class InnerCircle(SubDomain):
         def inside(self, x, on_boundary):
             # tolerance: half length of smallest element
             tol = hmin / 2. 
             from math import sqrt
-            result = abs(sqrt(x[0]**2 + x[1]**2) - ri) < tol
+            if dim == 2:
+                result = abs(sqrt(x[0]**2 + x[1]**2) - ri) < tol
+            elif dim == 3:
+                result = abs(sqrt(x[0]**2 + x[1]**2 + x[2]**2) - ri) < tol
             return result and on_boundary
     # outer cirlce boundary
     class OuterCircle(SubDomain):
@@ -74,19 +85,15 @@ def spherical_shell(dim, radii, boundary_ids, n_refinements = 0):
             # tolerance: half length of smallest element
             tol = hmin/2.
             from math import sqrt
-            result = abs(sqrt(x[0]**2 + x[1]**2) - ro) < tol
+            if dim == 2:
+                result = abs(sqrt(x[0]**2 + x[1]**2) - ro) < tol
+            elif dim == 3:
+                result = abs(sqrt(x[0]**2 + x[1]**2 + x[2]**2) - ro) < tol
             return result and on_boundary
     # mark boundaries
     gamma_inner = InnerCircle()
     gamma_inner.mark(facet_marker, inner_boundary_id)
     gamma_outer = OuterCircle()
     gamma_outer.mark(facet_marker, outer_boundary_id)
-    
-    
-#    # mark boundaries
-#    gamma_inner = CircleBoundary(hmin=mesh.hmin(), radius=ri)
-#    gamma_inner.mark(facet_marker, inner_boundary_id)
-#    gamma_outer = CircleBoundary(hmin=mesh.hmin(), radius=ro)
-#    gamma_outer.mark(facet_marker, outer_boundary_id)
     
     return mesh, facet_marker
