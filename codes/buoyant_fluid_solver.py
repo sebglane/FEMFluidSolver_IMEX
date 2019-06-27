@@ -15,10 +15,6 @@ def a_op(phi, psi):
 def b_op(phi, psi):
     from dolfin import div
     return div(phi) * psi
-# 2D cross product
-def cross_2D(phi):
-    from dolfin import as_vector
-    return as_vector([phi[1], -phi[0]])
 
 class BuoyantFluidSolver:
     def __init__(self, mesh, facet_ids, bcs, params, ics = dict()):
@@ -59,9 +55,11 @@ class BuoyantFluidSolver:
         # helpful constants
         self._one = dlfn.Constant(1.0)
         self._omega = dlfn.Constant(1.0)
+        self._rotation_vector = None
         if self._space_dim == 2:
             self._null_vector = dlfn.Constant((0.0, 0.0))
         elif self._space_dim == 3:
+            self._rotation_vector = dlfn.Constant((0.0, 0.0, 1.0))
             self._null_vector = dlfn.Constant((0.0, 0.0, 0.0))
         else:
             raise ValueError()
@@ -348,13 +346,14 @@ class BuoyantFluidSolver:
         assert hasattr(self, "_v00")
         assert hasattr(self, "_T0")
         assert hasattr(self, "_T00")
+        print "   setup implicit problem..."
         #=======================================================================
         # retrieve imex coefficients
         a = self._imex_alpha
         #=======================================================================
         # trial and test function
         (del_v, del_p, del_T) = dlfn.TestFunctions(self._Wh)
-        v, p, T = self._sol.split()
+        v, p, T = dlfn.split(self._sol)
         # volume element
         dV = dlfn.Measure("dx", domain = self._mesh)
         # reference to time step
@@ -362,29 +361,68 @@ class BuoyantFluidSolver:
         #=======================================================================
         from dolfin import dot, grad
         # 1) momentum equation
-        momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
-                     + dot(dot(grad(v), v), del_v) * dV \
-                     + self._coefficients[1] * a_op(v, del_v) * dV \
-                     - b_op(del_v, p) * dV \
-                     - b_op(v, del_p) * dV
-        # 2d) momentum equation: coriolis term
-        if self._parameters.rotation is True:
+        if self._parameters.rotation is False and self._parameters.buoyancy is False:
+            momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
+                         + dot(dot(grad(v), v), del_v) * dV \
+                         + self._coefficients[1] * a_op(v, del_v) * dV \
+                         - b_op(del_v, p) * dV \
+                         - b_op(v, del_p) * dV
+        elif self._parameters.rotation is False and self._parameters.buoyancy is True:
+            assert self._coefficients[2] != 0.0
+            print "   adding buoyancy to the model..."
+            # add buoyancy term
+            momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
+                         + dot(dot(grad(v), v), del_v) * dV \
+                         + self._coefficients[1] * a_op(v, del_v) * dV \
+                         - b_op(del_v, p) * dV \
+                         - b_op(v, del_p) * dV \
+                         + self._coefficients[2] * T * dot(self._gravity, del_v) * dV
+        elif self._parameters.rotation is True and self._parameters.buoyancy is False:
             assert self._coefficients[0] != 0.0
             print "   adding rotation to the model..."
             # add Coriolis term
             if self._space_dim == 2:
-                coriolis_term = cross_2D(v)
-                momentum_eqn += self._coefficients[0] * (-v[1] * del_v[0] + v[0] * del_v[1]) * dV
+                momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
+                             + dot(dot(grad(v), v), del_v) * dV \
+                             + self._coefficients[0] * (-v[1] * del_v[0] + v[0] * del_v[1]) * dV \
+                             + self._coefficients[1] * a_op(v, del_v) * dV \
+                             - b_op(del_v, p) * dV \
+                             - b_op(v, del_p) * dV
             elif self._space_dim == 3:
+                assert hasattr(self, "_rotation_vector")
+                assert isinstance(self._rotation_vector, (dlfn.Constant, dlfn.Expression))
                 from dolfin import cross
-                coriolis_term = cross(self._rotation_vector, v)
-                momentum_eqn += self._coefficients[0] * dot(coriolis_term, del_v) * dV
-        # 2e) rhs momentum equation: buoyancy term
-        if self._parameters.buoyancy is True:
+                momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
+                             + dot(dot(grad(v), v), del_v) * dV \
+                             + self._coefficients[0] * dot(cross(self._rotation_vector, v), del_v) * dV \
+                             + self._coefficients[1] * a_op(v, del_v) * dV \
+                             - b_op(del_v, p) * dV \
+                             - b_op(v, del_p) * dV
+        elif self._parameters.rotation is True and self._parameters.buoyancy is True:
+            assert self._coefficients[0] != 0.0
+            print "   adding rotation to the model..."
             assert self._coefficients[2] != 0.0
             print "   adding buoyancy to the model..."
-            # buoyancy term
-            momentum_eqn -= self._coefficients[2] * T * dot(self._gravity, del_v) * dV
+            # add Coriolis term and buoyancy term
+            if self._space_dim == 2:
+                momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
+                             + dot(dot(grad(v), v), del_v) * dV \
+                             + self._coefficients[0] * (-v[1] * del_v[0] + v[0] * del_v[1]) * dV \
+                             + self._coefficients[1] * a_op(v, del_v) * dV \
+                             - b_op(del_v, p) * dV \
+                             - b_op(v, del_p) * dV \
+                             + self._coefficients[2] * T * dot(self._gravity, del_v) * dV
+            elif self._space_dim == 3:
+                assert hasattr(self, "_rotation_vector")
+                assert isinstance(self._rotation_vector, (dlfn.Constant, dlfn.Expression))
+                from dolfin import cross
+                momentum_eqn = dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v) *  dV \
+                             + dot(dot(grad(v), v), del_v) * dV \
+                             + self._coefficients[0] * dot(cross(self._rotation_vector, v), del_v) * dV \
+                             + self._coefficients[1] * a_op(v, del_v) * dV \
+                             - b_op(del_v, p) * dV \
+                             - b_op(v, del_p) * dV \
+                             + self._coefficients[2] * T * dot(self._gravity, del_v) * dV
         #=======================================================================        
         # 3) energy equation
         energy_eqn = (a[0] * T + a[1] * self._T0 + a[2] * self._T00)/ timestep * del_T * dV \
@@ -395,8 +433,7 @@ class BuoyantFluidSolver:
         self._eqn = momentum_eqn + energy_eqn
         if not hasattr(self, "_dirichlet_bcs"):
             self._setup_boundary_conditons()
-        self._jacobian = dlfn.derivative(self._eqn, self._sol,
-                                         du = dlfn.TrialFunction(self._Wh))
+        self._jacobian = dlfn.derivative(self._eqn, self._sol)
         problem = dlfn.NonlinearVariationalProblem(self._eqn, self._sol,
                                                    J = self._jacobian,
                                                    bcs=self._dirichlet_bcs)
@@ -413,6 +450,7 @@ class BuoyantFluidSolver:
         assert hasattr(self, "_v00")
         assert hasattr(self, "_T0")
         assert hasattr(self, "_T00")
+        print "   setup explicit imex problem..."
         #=======================================================================
         # retrieve imex coefficients
         a, b, c = self._imex_alpha, self._imex_beta, self._imex_gamma
@@ -461,7 +499,7 @@ class BuoyantFluidSolver:
             # defining extrapolated temperature
             extrapolated_temperature = (self._one + self._omega) * self._T0 - self._omega * self._T00
             # buoyancy term
-            rhs_momentum += self._coefficients[2] * extrapolated_temperature * dot(self._gravity, del_v) * dV
+            rhs_momentum -= self._coefficients[2] * extrapolated_temperature * dot(self._gravity, del_v) * dV
         #=======================================================================        
         # 3) lhs energy equation
         lhs_energy = a[0] / timestep * dot(dT, del_T) * dV \
