@@ -10,16 +10,17 @@ params.dim = 2
 params.radii = (0.35, 1.0)
 # runtime parameters
 params.t_end = 150.
-params.n_steps = 20000
-params.output_frequency = 25
+params.n_steps = 250
+params.output_frequency = 10
 params.checkpoint_frequency = 100
-params.global_avg_frequency = 10
+params.global_avg_frequency = 5
 params.cfl_frequency = 10
 # solver parameters
 params.use_assembler_method = True
-params.solver_type = SolverType.implicit_solver
+params.solver_type = SolverType.nonlinear_implicit_solver
 # time stepping parameters
 params.adaptive_time_stepping = True
+params.imex_type = IMEXType.CNAB
 params.timestep = 5e-5
 params.min_cfl = 0.4
 params.max_cfl = 0.6

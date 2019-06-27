@@ -24,7 +24,7 @@ class ParameterHandler(object):
         
         # solver options
         from buoyant_fluid_solver import SolverType
-        self.__solver_type = SolverType.imex_solver
+        self.__solver_type = SolverType.linear_imex_solver
         self.__use_assembler_method = True
         
         # time stepping parameters
@@ -165,6 +165,9 @@ class ParameterHandler(object):
     def imex_type(self, x):
         from time_stepping import IMEXType
         assert isinstance(x, IMEXType)
+        from buoyant_fluid_solver import SolverType
+        if self.__solver_type is SolverType.nonlinear_implicit_solver:
+            assert x in (IMEXType.CNAB, IMEXType.SBDF)
         self.__imex_type = x
     
     @property

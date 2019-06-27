@@ -5,8 +5,8 @@ from time_stepping import IMEXCoefficients
 
 from enum import Enum
 class SolverType(Enum):
-    imex_solver = 0
-    implicit_solver = 1
+    linear_imex_solver = 0
+    nonlinear_implicit_solver = 1
 
 # define auxiliary operators
 def a_op(phi, psi):
@@ -64,7 +64,7 @@ class BuoyantFluidSolver:
         else:
             raise ValueError()
         
-        print "The system's version of FEniCS is ", dlfn.dolfin_version(), "."
+        print "The system's version of FEniCS is", dlfn.dolfin_version(), "."
         
     def _check_boundary_conditions(self, bcs):
         from boundary_conditions import VelocityBCType, TemperatureBCType
@@ -127,9 +127,9 @@ class BuoyantFluidSolver:
         
         self._update_imex_coefficients()
         
-        if self._parameters.solver_type is SolverType.imex_solver:
+        if self._parameters.solver_type is SolverType.linear_imex_solver:
             self._setup_imex_problem()
-        elif self._parameters.solver_type is SolverType.implicit_solver:
+        elif self._parameters.solver_type is SolverType.nonlinear_implicit_solver:
             self._setup_implicit_problem()
         
         self._setup_initial_conditions()
@@ -349,7 +349,7 @@ class BuoyantFluidSolver:
         print "   setup implicit problem..."
         #=======================================================================
         # retrieve imex coefficients
-        a = self._imex_alpha
+        a, c = self._imex_alpha, self._imex_gamma
         #=======================================================================
         # trial and test function
         (del_v, del_p, del_T) = dlfn.TestFunctions(self._Wh)
@@ -363,7 +363,7 @@ class BuoyantFluidSolver:
         # 1) momentum equation
         momentum_eqn = ( dot((a[0] * v + a[1] * self._v0 + a[2] * self._v00)/ timestep, del_v)
                      + dot(dot(grad(v), v), del_v)
-                     + self._coefficients[1] * a_op(v, del_v)
+                     + self._coefficients[1] * a_op(c[0] * v + c[1] * self._v0 + c[2] * self._v00, del_v)
                      - b_op(del_v, p)
                      - b_op(v, del_p) ) * dV
         # 2) momentum equation: coriolis term
@@ -377,19 +377,19 @@ class BuoyantFluidSolver:
                 assert hasattr(self, "_rotation_vector")
                 assert isinstance(self._rotation_vector, (dlfn.Constant, dlfn.Expression))
                 from dolfin import cross
-                momentum_eqn = self._coefficients[0] * dot(cross(self._rotation_vector, v), del_v) * dV
+                momentum_eqn += self._coefficients[0] * dot(cross(self._rotation_vector, v), del_v) * dV
         # 3) momentum equation: coriolis term
         if self._parameters.buoyancy is True:
             assert self._coefficients[2] != 0.0
             assert hasattr(self, "_gravity") and isinstance(self._gravity, (dlfn.Expression, dlfn.Constant))
             print "   adding buoyancy to the model..."
             # add buoyancy term
-            momentum_eqn = self._coefficients[2] * T * dot(self._gravity, del_v) * dV
+            momentum_eqn += self._coefficients[2] * T * dot(self._gravity, del_v) * dV
         #=======================================================================        
         # 4) energy equation
         energy_eqn = ((a[0] * T + a[1] * self._T0 + a[2] * self._T00)/ timestep * del_T
                    + dot(v, grad(T)) * del_T 
-                   + self._coefficients[3] * a_op(T, del_T)) * dV
+                   + self._coefficients[3] * a_op(c[0] * T + c[1] *  self._T0 + c[2] * self._T00, del_T)) * dV
         #=======================================================================        
         # full problem
         self._eqn = momentum_eqn + energy_eqn
