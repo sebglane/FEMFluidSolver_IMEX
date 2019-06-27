@@ -15,7 +15,6 @@ def cross_2D(phi):
     from dolfin import as_vector
     return as_vector([phi[1], -phi[0]])
 
-
 class BuoyantFluidSolver:
     def __init__(self, mesh, facet_ids, bcs, params, ics = dict()):
         # input check: mesh
@@ -370,25 +369,26 @@ class BuoyantFluidSolver:
         # 2d) rhs momentum equation: coriolis term
         if self._parameters.rotation is True:
             assert self._coefficients[0] != 0.0
-            print "   adding rotation to the model..."
             # defining extrapolated velocity
             extrapolated_velocity = (self._one + self._omega) * self._v0 \
                                     - self._omega * self._v00
             # set Coriolis term
             if self._space_dim == 2:
                 coriolis_term = cross_2D(extrapolated_velocity)
+                rhs_momentum -= self._coefficients[0] * (-extrapolated_velocity[1] * del_v[0] + extrapolated_velocity[0] * del_v[1] ) * dV
             elif self._space_dim == 3:
                 from dolfin import cross
-                coriolis_term = cross(self._rotation_vector,
-                                      extrapolated_velocity)
-            rhs_momentum -= self._coefficients[0] * dot(coriolis_term, del_v) * dV
+                coriolis_term = cross(self._rotation_vector, extrapolated_velocity)
+                rhs_momentum -= self._coefficients[0] * dot(coriolis_term, del_v) * dV
+            print "   adding rotation to the model..."
+            
         # 2e) rhs momentum equation: buoyancy term
         if self._parameters.buoyancy is True:
             assert self._coefficients[2] != 0.0
-            print "   adding buoyancy to the model..."
             # defining extrapolated temperature
             extrapolated_temperature = (self._one + self._omega) * self._T0 - self._omega * self._T00
             # buoyancy term
+            print "   adding buoyancy to the model..."
             rhs_momentum += self._coefficients[2] * extrapolated_temperature * dot(self._gravity, del_v) * dV
         #=======================================================================        
         # 3) lhs energy equation
