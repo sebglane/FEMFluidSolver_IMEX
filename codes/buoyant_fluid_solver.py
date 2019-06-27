@@ -400,6 +400,10 @@ class BuoyantFluidSolver:
                                                    J = self._jacobian,
                                                    bcs=self._dirichlet_bcs)
         self._solver = dlfn.NonlinearVariationalSolver(problem)
+        prm = self._solver.parameters
+        prm["newton_solver"]["absolute_tolerance"] = 1e-6
+        prm["newton_solver"]["relative_tolerance"] = 1e-9
+        prm["newton_solver"]["maximum_iterations"] = 10
     
     def _setup_imex_problem(self):
         assert hasattr(self, "_parameters")
@@ -567,9 +571,9 @@ class BuoyantFluidSolver:
         if not initial:
             self._global_avg_log.append((step, time, velocity_rms, kinetic_energy, temperature_rms))
         
-        print "   velocity rms:\t\t{0:.6f}".format(velocity_rms)
-        print "   kinetic energy:\t{0:.6f}".format(kinetic_energy)
-        print "   temperature rms:\t{0:.6f}".format(temperature_rms)
+        print "   velocity rms:\t\t{0: 4.6f}".format(velocity_rms)
+        print "   kinetic energy:\t{0: 4.6f}".format(kinetic_energy)
+        print "   temperature rms:\t{0: 4.6f}".format(temperature_rms)
         
     
     def _output_results(self, velocity, temperature, pressure, step, time, initial = False):

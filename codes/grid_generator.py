@@ -53,7 +53,7 @@ def spherical_shell(dim, radii, boundary_ids, n_refinements = 0):
     elif dim == 3:
         domain = Sphere(center, ro) \
                - Sphere(center, ri)
-        mesh = generate_mesh(domain, 40)
+        mesh = generate_mesh(domain, 15)
                
     # mesh refinement
     from dolfin import refine
