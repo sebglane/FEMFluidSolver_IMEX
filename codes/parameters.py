@@ -23,6 +23,8 @@ class ParameterHandler(object):
         self.__temperature_degree = 1
         
         # solver options
+        from buoyant_fluid_solver import SolverType
+        self.__solver_type = SolverType.imex_solver
         self.__use_assembler_method = True
         
         # time stepping parameters
@@ -283,6 +285,16 @@ class ParameterHandler(object):
     def checkpoint_frequency(self, x):
         assert isinstance(x, int)  and x >= 1
         self.__checkpoint_frequency = x
+
+    @property
+    def solver_type(self):
+        return self.__solver_type
+    
+    @solver_type.setter
+    def solver_type(self, x):
+        from buoyant_fluid_solver import SolverType
+        assert isinstance(x, SolverType)
+        self.__solver_type = x
 
     @property
     def use_assembler_method(self):

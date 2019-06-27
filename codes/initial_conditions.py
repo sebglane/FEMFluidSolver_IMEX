@@ -24,8 +24,8 @@ def Christensen2001Case0(dim, radii):
         radius_string = "sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2))"
 
     xi_string = "(2.0 * {0} - ro - ri)/(ro - ri)".format(radius_string)
-    azimuthal_fun_string = "((pow(x[0],4) - 6.0 * pow(x[0],2) *  pow(x[1],2) + pow(x[1],4) ) \
-            / ( pow(x[0],2) + pow(x[1],2) ))"
+    azimuthal_fun_string = "( pow(x[0],4) - 6.0 * pow(x[0],2) *  pow(x[1],2) + pow(x[1],4) ) \
+            / pow(pow(x[0],2) + pow(x[1],2), 2)"
 
     # define functions
     if dim == 2:

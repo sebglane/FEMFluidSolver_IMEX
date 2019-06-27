@@ -2,6 +2,7 @@
 from parameters import ParameterHandler
 from gravity_field import GravityType
 from time_stepping import IMEXType
+from buoyant_fluid_solver import SolverType
 #------------------------------------------------------------------------------#
 params = ParameterHandler()
 # geometry parameters
@@ -9,15 +10,15 @@ params.dim = 2
 params.radii = (0.35, 1.0)
 # runtime parameters
 params.t_end = 150.
-params.n_steps = 2000
-params.output_frequency = 100
+params.n_steps = 20000
+params.output_frequency = 25
 params.checkpoint_frequency = 100
 params.global_avg_frequency = 10
 params.cfl_frequency = 10
 # solver parameters
 params.use_assembler_method = True
+params.solver_type = SolverType.implicit_solver
 # time stepping parameters
-params.imex_type = IMEXType.SBDF
 params.adaptive_time_stepping = True
 params.timestep = 5e-5
 params.min_cfl = 0.4

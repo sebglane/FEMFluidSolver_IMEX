@@ -25,13 +25,13 @@ def get_gravity_field(dim, gravity_type, radii = None):
     if gravity_type == GravityType.radial:
         if dim == 2:
             gravity_vector = Expression(
-                            ('x[0] / sqrt( pow(x[0],2) + pow(x[1],2) )', 
-                             'x[1] / sqrt( pow(x[0],2) + pow(x[1],2) )'), degree=2)
+                            ('-x[0] / sqrt( pow(x[0],2) + pow(x[1],2) )', 
+                             '-x[1] / sqrt( pow(x[0],2) + pow(x[1],2) )'), degree=2)
         elif dim == 3:
             gravity_vector = Expression(
-                            ('x[0] / sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2) )', 
-                             'x[1] / sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2) )',
-                             'x[2] / sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2) )'),
+                            ('-x[0] / sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2) )', 
+                             '-x[1] / sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2) )',
+                             '-x[2] / sqrt( pow(x[0],2) + pow(x[1],2) + pow(x[2],2) )'),
                             degree=2)
         return gravity_vector
     elif gravity_type == GravityType.radial_linear:
@@ -43,9 +43,9 @@ def get_gravity_field(dim, gravity_type, radii = None):
         assert ri < ro
         
         if dim == 2:
-            gravity_vector = Expression(('x[0] / ro', 'x[1] / ro'), degree=2, ro = ro)
+            gravity_vector = Expression(('-x[0] / ro', '-x[1] / ro'), degree=2, ro = ro)
         elif dim == 3:
-            gravity_vector = Expression(('x[0] / ro', 'x[1] / ro', 'x[2] / ro'),
+            gravity_vector = Expression(('-x[0] / ro', '-x[1] / ro', '-x[2] / ro'),
                                         degree=2, ro = ro)
         return gravity_vector
     else:
