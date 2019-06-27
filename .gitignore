@@ -6,6 +6,17 @@ __pycache__/
 # C extensions
 *.so
 
+# graphical output
+*.vtu
+*.pvd
+*.h5
+*.hdf5
+*.pvtu
+*.visit
+
+# logfiles
+*.log
+
 # Distribution / packaging
 .Python
 build/
