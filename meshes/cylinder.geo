@@ -1,41 +1,114 @@
-cl__1 = 0.1;
-cl__2 = 1;
-Point(1) = {0, 0, 0, 0.1};
-Point(2) = {2.2, 0, 0, 0.1};
-Point(3) = {2.2, 0.41, 0, 0.1};
-Point(4) = {0, 0.41, 0, 0.1};
-Point(5) = {0.2, 0.2, 0, 0.1};
-Point(6) = {0.25, 0.2, 0, 0.1};
-Point(7) = {0.15, 0.2, 0, 0.1};
-Point(8) = {0.2, 0.25, 0, 0.1};
-Point(9) = {0.2, 0.15, 0, 0.1};
-Point(10) = {0.2, 0, 0, 1};
-Point(11) = {0.5, -0, 0, 1};
-Point(12) = {0.5, 0.41, 0, 1};
-Point(13) = {0.2, 0.41, 0, 1};
+sqrt1_2 = 0.70710678118654752440;
+
+cl__max = 0.075;
+cl__min = 0.0001;
+
+xc = 0.2;
+yc = 0.2;
+rc = 0.05;
+h = 0.41;
+l = 2.2;
+a = 3.0;
+
+// curves of the channel
+Point(1) = {0, 0, 0, cl__max};
+Point(2) = {xc, 0, 0, cl__max};
+Point(3) = {a * xc, 0, 0, cl__max};
+Point(4) = {l, 0, 0, cl__max};
+Point(5) = {l, yc, 0, cl__max};
+Point(6) = {l, h, 0, cl__max};
+Point(7) = {a * xc, h, 0,cl__max};
+Point(8) = {xc, h, 0, cl__max};
+Point(9) = {0, h, 0, cl__max};
+Point(10) = {0, yc, 0, cl__max};
+
+// lines of the channel
 Line(1) = {1, 2};
 Line(2) = {2, 3};
 Line(3) = {3, 4};
-Line(4) = {4, 1};
-Circle(5) = {8, 5, 7};
-Circle(6) = {7, 5, 9};
-Circle(7) = {9, 5, 6};
-Circle(8) = {6, 5, 8};
-Line(13) = {10, 9};
-Line(14) = {8, 13};
-Line(15) = {12, 11};
-Line Loop(16) = {3, 4, 1, 2};
-Plane Surface(17) = {16};
-Delete {
-  Surface{17};
-}
-Line Loop(17) = {8, 5, 6, 7};
-Plane Surface(18) = {16, 17};
-Transfinite Line {8} = 10 Using Progression 1;
-Transfinite Line {7} = 10 Using Progression 1;
-Transfinite Line {13} = 10 Using Progression 1;
-Transfinite Line {15} = 10 Using Progression 1;
-Transfinite Line {14} = 10 Using Progression 1;
-Transfinite Line {3} = 10 Using Progression 1;
-Transfinite Line {8} = 50 Using Progression 1;
-Transfinite Line {7} = 50 Using Progression 1;
+Line(4) = {4, 5};
+Line(5) = {5, 6};
+Line(6) = {6, 7};
+Line(7) = {7, 8};
+Line(8) = {8, 9};
+Line(9) = {9, 10};
+Line(10) = {10, 1};
+
+// points of the cylinder
+Point(11) = {xc, yc, 0, cl__max};
+Point(12) = {xc + rc, yc, 0, cl__max};
+Point(13) = {xc + rc * sqrt1_2, yc + rc * sqrt1_2, 0, cl__max};
+Point(14) = {xc, yc + rc, 0, cl__max};
+Point(15) = {xc - rc * sqrt1_2, yc + rc * sqrt1_2, 0, cl__max};
+Point(16) = {xc - rc, yc, 0, cl__max};
+Point(17) = {xc - rc * sqrt1_2, yc - rc * sqrt1_2, 0, cl__max};
+Point(18) = {xc, yc - rc, 0, cl__max};
+Point(19) = {xc + rc * sqrt1_2, yc - rc * sqrt1_2, 0, cl__max};
+
+// curves of the cylinder
+Circle(11) = {12, 11, 13};
+Circle(12) = {13, 11, 14};
+Circle(13) = {14, 11, 15};
+Circle(14) = {15, 11, 16};
+Circle(15) = {16, 11, 17};
+Circle(16) = {17, 11, 18};
+Circle(17) = {18, 11, 19};
+Circle(18) = {19, 11, 12};
+
+// auxiliary horizontal lines
+Point(20) = {a * xc, yc, 0, cl__max};
+Line(19) = {10, 16};
+Line(20) = {12, 20};
+Line(21) = {20, 5};
+
+// auxiliary vertical lines
+Line(22) = {2, 18};
+Line(23) = {14, 8};
+Line(24) = {3, 20};
+Line(25) = {20, 7};
+
+// auxiliary diagonal lines
+Line(26) = {1, 17};
+Line(27) = {19, 3};
+Line(28) = {9, 15};
+Line(29) = {13, 7};
+
+// auxiliary diagonal lines
+Line Loop(30) = {1, 22, -16, -26};
+Plane Surface(31) = {30};
+Line Loop(32) = {2, -27, -17, -22};
+Plane Surface(33) = {32};
+Line Loop(34) = {3, 4, -21, -24};
+Plane Surface(35) = {34};
+Line Loop(36) = {5, 6, -25, 21};
+Plane Surface(37) = {36};
+Line Loop(38) = {7, -23, -12, 29};
+Plane Surface(39) = {38};
+Line Loop(40) = {23, 8, 28, -13};
+Plane Surface(41) = {40};
+Line Loop(42) = {9, 19, -14, -28};
+Plane Surface(43) = {42};
+Line Loop(44) = {10, 26, -15, -19};
+Plane Surface(45) = {44};
+Line Loop(46) = {11, 29, -25, -20};
+Plane Surface(47) = {46};
+Line Loop(48) = {18, 20, -24, -27};
+Plane Surface(49) = {48};
+
+/*
+Transfinite Line {-28, -19, -26, -22, 27, 20, 29, 23} = 10 Using Progression 1.2;
+*/
+/*
+Field[1] = Box;
+Field[1].VIn = cl__max / 2.;
+Field[1].VOut = cl__max;
+Field[1].XMax = a * xc;
+Field[1].YMax = h;
+Field[1].ZMax = 1;
+Field[1].ZMin = -1;
+
+Field[2] = BoundaryLayer;
+Field[2].EdgesList = {1, 2, 3, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18};
+Field[2].hwall_n = 0.02;
+Field[2].hwall_t = 0.02;
+*/
