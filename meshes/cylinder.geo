@@ -1,14 +1,15 @@
 sqrt1_2 = 0.70710678118654752440;
 
-cl__max = 0.075;
-cl__min = 0.0001;
-
 xc = 0.2;
 yc = 0.2;
 rc = 0.05;
 h = 0.41;
 l = 2.2;
 a = 3.0;
+
+cl__max = 1.0;
+cl__med = h / 10.;
+cl__min = rc / 2.;
 
 // curves of the channel
 Point(1) = {0, 0, 0, cl__max};
@@ -95,20 +96,29 @@ Plane Surface(47) = {46};
 Line Loop(48) = {18, 20, -24, -27};
 Plane Surface(49) = {48};
 
-/*
-Transfinite Line {-28, -19, -26, -22, 27, 20, 29, 23} = 10 Using Progression 1.2;
-*/
-/*
+// size  fields
 Field[1] = Box;
-Field[1].VIn = cl__max / 2.;
+Field[1].VIn = cl__med;
 Field[1].VOut = cl__max;
-Field[1].XMax = a * xc;
+Field[1].XMax = l;
+Field[1].XMin = a * xc;
+Field[1].YMin = 0.0;
 Field[1].YMax = h;
-Field[1].ZMax = 1;
-Field[1].ZMin = -1;
-
-Field[2] = BoundaryLayer;
-Field[2].EdgesList = {1, 2, 3, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18};
-Field[2].hwall_n = 0.02;
-Field[2].hwall_t = 0.02;
-*/
+Field[2] = Box;
+Field[2].VIn = cl__min;
+Field[2].VOut = cl__max;
+Field[2].XMax = a * xc;
+Field[2].XMin = 0.0;
+Field[2].YMin = 0.0;
+Field[2].YMax = h;
+Field[3] = Attractor;
+Field[3].EdgesList = {6, 7, 8, 9, 10, 1, 2, 3, 11, 12, 13, 14, 15, 16, 17, 18};
+Field[4] = Threshold;
+Field[4].IField = 3;
+Field[4].DistMax = 0.5 * rc;
+Field[4].DistMin = 0.3 * rc;
+Field[4].LcMax = cl__med;
+Field[4].LcMin = 0.2 * rc;
+Field[5] = Min;
+Field[5].FieldsList = {1, 2, 4};
+Background Field = 5;
